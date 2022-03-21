@@ -4,7 +4,7 @@
 Controlled dual-pwm motor dc with enabled DMA interrupt + TIM OC
 
 ### Configures
-- HSE: 8MHz, Clock Frequency: 180MHz
+- HSE: 8MHz, Clock Frequency: 170MHz
 - TIM1 CH1 OC No Output DMA, PSC: 0, ARR: 100, Circular, DIR: Memory to Peripheral, Global Interrupt
 - TIM4 CH1 & CH2 PWM, PSC: 170-1, ARR: (Period of MotorDC Speed), Global Interrupt
 - TIM7 Modbus Clock, PSC: 170-1, ARR: 50-1, Global Interrupt
