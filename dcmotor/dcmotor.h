@@ -28,6 +28,12 @@ typedef struct
 	TIM_HandleTypeDef* TIM_Instance;
 	uint32_t EN1_TIM_CH;
 	uint32_t EN2_TIM_CH;
+	TIM_HandleTypeDef* OC_Instance;
+	uint32_t OC_TIM_CH;
+	DMA_HandleTypeDef* DMA_Instance;
+	uint32_t DMA_CC;
+	uint32_t CC1_DEST;
+	uint32_t CC2_DEST;
 	GPIO_TypeDef* LIMIT_GPIO;
 	uint16_t LIMIT_PIN;
 	GPIO_TypeDef* LED_GPIO;
@@ -36,9 +42,8 @@ typedef struct
 
 /*-----[ Prototypes For All Functions ]-----*/
 void dcmotor_Init(uint8_t au8_MOTOR_Instance);
-void dcmotor_Start(uint8_t au8_MOTOR_Instance, uint8_t au8_DIR, uint16_t au16_SPEED);
-void dcmotor_setSpeed(uint8_t au8_MOTOR_Instance, uint16_t au16_SPEED);
-void dcmotor_setDirection(uint8_t au8_MOTOR_Instance, uint8_t au8_DIR);
+void dcmotor_Start(uint8_t au8_MOTOR_Instance);
+void dcmotor_setDirection(uint8_t au8_MOTOR_Instance, uint8_t au8_DIR, uint32_t pwm_data);
 void dcmotor_Stop(uint8_t au8_MOTOR_Instance);
 
 #endif /* DCMOTOR_H_ */
