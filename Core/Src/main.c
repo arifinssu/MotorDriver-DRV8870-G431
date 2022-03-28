@@ -18,7 +18,6 @@
 /*USER CODE END Header */
 /*Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "adc.h"
 #include "dma.h"
 #include "i2c.h"
 #include "spi.h"
@@ -31,7 +30,9 @@
 #include "../../modbus/mb.h"
 #include "../../modbus/mbport.h"
 #include "../../dcmotor/dcmotor.h"
+#include "../../w25qxx/w25qxx.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /*USER CODE END Includes */
@@ -42,6 +43,8 @@
 
 /*Private define ------------------------------------------------------------*/
 /*USER CODE BEGIN PD */
+// modbus config
+#define SECTOR_MODBUS_ADDRESS 1
 #define REG_HOLDING_START 1
 #define REG_HOLDING_NREGS 52
 #define REG_INPUT_START 1
@@ -97,6 +100,18 @@ void writeHoldingRegs(int iRegIndex, uint16_t tempReg);
 
 /*Private user code ---------------------------------------------------------*/
 /*USER CODE BEGIN 0 */
+int getDeviceAddress()
+{
+    uint8_t mb_default_address[] = "80";
+    uint8_t sector_cont[sizeof(mb_default_address)-1];
+    if (W25qxx_IsEmptySector(SECTOR_MODBUS_ADDRESS, sizeof(mb_default_address), sizeof(mb_default_address)-1) == false) W25qxx_ReadSector(sector_cont, SECTOR_MODBUS_ADDRESS, sizeof(mb_default_address), sizeof(mb_default_address)-1);
+
+    else memcpy(sector_cont, mb_default_address, sizeof(mb_default_address)-1);
+
+    uint8_t v[sizeof(sector_cont)];
+    memcpy(v, sector_cont, sizeof(sector_cont));
+    return atoi(v);
+}
 /*USER CODE END 0 */
 
 /**
@@ -129,22 +144,18 @@ int main(void)
     MX_USART2_UART_Init();
     MX_TIM4_Init();
     MX_DMA_Init();
-    MX_ADC1_Init();
     MX_TIM7_Init();
     MX_TIM1_Init();
     /*USER CODE BEGIN 2 */
-    for (size_t i = 0; i < REG_HOLDING_NREGS; ++i)
-    {
-        usRegHoldingBuf[i] = 0;
-    }
 
-    for (size_t i = 0; i < REG_INPUT_NREGS; ++i)
-    {
-        usRegInputBuf[i] = 0;
-    }
+   	// set 0 holding &input regs
+    for (size_t i = 0; i < REG_HOLDING_NREGS; i++) usRegHoldingBuf[i] = 0;
+    for (size_t i = 0; i < REG_INPUT_NREGS; i++) usRegInputBuf[i] = 0;
+
+    W25qxx_Init();
 
     dcmotor_Init(M1);
-    eMBInit(MB_RTU, 4, 3, 9600, MB_PAR_NONE);
+    eMBInit(MB_RTU, getDeviceAddress(), 3, 9600, MB_PAR_NONE);
     eMBEnable();
     /*USER CODE END 2 */
 
@@ -156,6 +167,7 @@ int main(void)
         /*USER CODE END WHILE */
         /*USER CODE BEGIN 3 */
     }
+
     /*USER CODE END 3 */
 }
 
@@ -205,12 +217,11 @@ void SystemClock_Config(void)
 }
 
 /*USER CODE BEGIN 4 */
-
 /**
- * @brief Fetching modbus input register data.
+ *@brief Fetching modbus input register data.
  * 
- * @param iRegIndex
- * @return uint8_t 
+ *@param iRegIndex
+ *@return uint8_t 
  */
 uint8_t fetchInputRegsData(int iRegIndex)
 {
@@ -219,10 +230,10 @@ uint8_t fetchInputRegsData(int iRegIndex)
 }
 
 /**
- * @brief Fetching modbus holding register data.
+ *@brief Fetching modbus holding register data.
  * 
- * @param iRegIndex 
- * @return uint8_t 
+ *@param iRegIndex 
+ *@return uint8_t 
  */
 uint8_t fetchHoldingRegsData(int iRegIndex)
 {
@@ -251,11 +262,11 @@ uint8_t fetchHoldingRegsData(int iRegIndex)
 }
 
 /**
- * @brief Validate modbus writing holding register data.
+ *@brief Validate modbus writing holding register data.
  * 
- * @param iRegIndex 
- * @param usNRegs 
- * @return uint8_t 
+ *@param iRegIndex 
+ *@param usNRegs 
+ *@return uint8_t 
  */
 uint8_t validateWriteHoldingRegs(int iRegIndex, uint16_t usNRegs)
 {
@@ -285,10 +296,10 @@ uint8_t validateWriteHoldingRegs(int iRegIndex, uint16_t usNRegs)
 }
 
 /**
- * @brief Writing modbus holding registers.
+ *@brief Writing modbus holding registers.
  * 
- * @param iRegIndex 
- * @param tempReg
+ *@param iRegIndex 
+ *@param tempReg
  */
 void writeHoldingRegs(int iRegIndex, uint16_t tempReg)
 {
