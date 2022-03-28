@@ -35,3 +35,7 @@ void dcmotor_Start(uint8_t au8_MOTOR_Instance);
 void dcmotor_setDirection(uint8_t au8_MOTOR_Instance, uint8_t au8_DIR, uint32_t pwm_data);
 void dcmotor_Stop(uint8_t au8_MOTOR_Instance);
 ```
+
+> w25Qxx Data expression
+
+![](https://github.com/drunktective/MotorDriver-DRV8870-G431/blob/w25qxx/w25q16_data.png)
