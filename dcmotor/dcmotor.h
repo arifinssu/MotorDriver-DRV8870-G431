@@ -34,8 +34,6 @@ typedef struct
 	uint32_t DMA_CC;
 	uint32_t CC1_DEST;
 	uint32_t CC2_DEST;
-	GPIO_TypeDef* LIMIT_GPIO;
-	uint16_t LIMIT_PIN;
 	GPIO_TypeDef* LED_GPIO;
 	uint16_t LED_PIN;
 }DC_MOTOR_CfgType;

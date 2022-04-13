@@ -34,46 +34,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 /*USER CODE END Includes */
-
-/*Private typedef -----------------------------------------------------------*/
-/*USER CODE BEGIN PTD */
-/*USER CODE END PTD */
 
 /*Private define ------------------------------------------------------------*/
 /*USER CODE BEGIN PD */
 // modbus config
 #define SECTOR_MODBUS_ADDRESS 1
 #define REG_HOLDING_START 1
-#define REG_HOLDING_NREGS 52
-#define REG_INPUT_START 1
-#define REG_INPUT_NREGS 24
-
-// define motor instance
-#define M1 0
-/*USER CODE END PD */
-
-/*Private macro -------------------------------------------------------------*/
-/*USER CODE BEGIN PM */
-/*USER CODE END PM */
-
-/*Private variables ---------------------------------------------------------*/
-
-/*USER CODE BEGIN PV */
+#define REG_HOLDING_NREGS 22
 static USHORT usRegHoldingStart = REG_HOLDING_START;
 static USHORT usRegHoldingBuf[REG_HOLDING_NREGS];
-static USHORT usRegInputStart = REG_INPUT_START;
-static USHORT usRegInputBuf[REG_INPUT_NREGS];
-
-union
-{
-    float f;
-    LONG l;
-    USHORT us[2];
-    uint32_t ul;
-} __32bitsRegBuf;
-
 enum
 {
     HREG_M1_RUN,
@@ -82,16 +52,20 @@ enum
     HREG_M2_DIR,
     HREG_M1_SPEED,
     HREG_M2_SPEED,
-    HREG_M1_LIMIT_STATE,
-    HREG_M2_LIMIT_STATE
+    HREG_NEW_MODBUS_ADDRESS
 } holdingRegs_t;
 
+// define motor instance
+#define M1 0
+#define M2 1
 uint8_t pwm_data[1];
-/*USER CODE END PV */
+/*USER CODE END PD */
 
 /*Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /*USER CODE BEGIN PFP */
+int getDeviceAddress();
+void writeDeviceAddress(char new_address[]);
 uint8_t fetchInputRegsData(int iRegIndex);
 uint8_t fetchHoldingRegsData(int iRegIndex);
 uint8_t validateWriteHoldingRegs(int iRegIndex, uint16_t usNRegs);
@@ -100,18 +74,6 @@ void writeHoldingRegs(int iRegIndex, uint16_t tempReg);
 
 /*Private user code ---------------------------------------------------------*/
 /*USER CODE BEGIN 0 */
-int getDeviceAddress()
-{
-    uint8_t mb_default_address[] = "80";
-    uint8_t sector_cont[sizeof(mb_default_address)-1];
-    if (W25qxx_IsEmptySector(SECTOR_MODBUS_ADDRESS, sizeof(mb_default_address), sizeof(mb_default_address)-1) == false) W25qxx_ReadSector(sector_cont, SECTOR_MODBUS_ADDRESS, sizeof(mb_default_address), sizeof(mb_default_address)-1);
-
-    else memcpy(sector_cont, mb_default_address, sizeof(mb_default_address)-1);
-
-    uint8_t v[sizeof(sector_cont)];
-    memcpy(v, sector_cont, sizeof(sector_cont));
-    return atoi(v);
-}
 /*USER CODE END 0 */
 
 /**
@@ -147,14 +109,12 @@ int main(void)
     MX_TIM7_Init();
     MX_TIM1_Init();
     /*USER CODE BEGIN 2 */
-
-   	// set 0 holding &input regs
+   	// set 0 holding & input regs
     for (size_t i = 0; i < REG_HOLDING_NREGS; i++) usRegHoldingBuf[i] = 0;
-    for (size_t i = 0; i < REG_INPUT_NREGS; i++) usRegInputBuf[i] = 0;
 
     W25qxx_Init();
-
     dcmotor_Init(M1);
+
     eMBInit(MB_RTU, getDeviceAddress(), 3, 9600, MB_PAR_NONE);
     eMBEnable();
     /*USER CODE END 2 */
@@ -167,7 +127,6 @@ int main(void)
         /*USER CODE END WHILE */
         /*USER CODE BEGIN 3 */
     }
-
     /*USER CODE END 3 */
 }
 
@@ -177,8 +136,8 @@ int main(void)
  */
 void SystemClock_Config(void)
 {
-    RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
-    RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
     /**Configure the main internal regulator output voltage
      */
@@ -218,6 +177,43 @@ void SystemClock_Config(void)
 
 /*USER CODE BEGIN 4 */
 /**
+ * @brief Get the Modbus Device Address object. 
+ * If not present, default address = 80.
+ * 
+ * @return int
+ */
+int getDeviceAddress()
+{
+    uint8_t mb_default_address[] = "80";
+    uint8_t sector_cont[sizeof(mb_default_address)-1];
+    if (W25qxx_IsEmptySector(SECTOR_MODBUS_ADDRESS, sizeof(mb_default_address), sizeof(mb_default_address)-1) == false)
+        W25qxx_ReadSector(sector_cont, SECTOR_MODBUS_ADDRESS, sizeof(mb_default_address), sizeof(mb_default_address)-1);
+
+    else memcpy(sector_cont, mb_default_address, sizeof(mb_default_address)-1);
+
+    uint8_t v[sizeof(sector_cont)];
+    memcpy(v, sector_cont, sizeof(sector_cont));
+    return atoi(v);
+}
+
+/**
+ * @brief Write the Modbus Device Address object.
+ * 
+ * @param new_address 
+ */
+void writeDeviceAddress(char new_address[])
+{
+    // char s[strlen(new_address)];
+    // memcpy(s, new_address, strlen(new_address));
+    // strcpy(s, new_address);
+    W25qxx_EraseSector(SECTOR_MODBUS_ADDRESS);
+    W25qxx_WriteSector(new_address, SECTOR_MODBUS_ADDRESS, SECTOR_MODBUS_ADDRESS+strlen(new_address), strlen(new_address));
+
+    HAL_Delay(50);
+    Error_Handler();
+}
+
+/**
  *@brief Fetching modbus input register data.
  * 
  *@param iRegIndex
@@ -253,6 +249,8 @@ uint8_t fetchHoldingRegsData(int iRegIndex)
             break;
         case HREG_M2_SPEED:
             break;
+        case HREG_NEW_MODBUS_ADDRESS:
+            break;
         default:
             numUs = 0;
             break;
@@ -266,10 +264,12 @@ uint8_t fetchHoldingRegsData(int iRegIndex)
  * 
  *@param iRegIndex 
  *@param usNRegs 
- *@return uint8_t 
+ *@return result
  */
 uint8_t validateWriteHoldingRegs(int iRegIndex, uint16_t usNRegs)
 {
+    uint8_t result = 1;
+
     for (size_t i = 0; i < usNRegs; ++i)
     {
         switch (iRegIndex + i)
@@ -286,13 +286,15 @@ uint8_t validateWriteHoldingRegs(int iRegIndex, uint16_t usNRegs)
                 break;
             case HREG_M2_SPEED:
                 break;
+            case HREG_NEW_MODBUS_ADDRESS:
+                break;
             default:
                 if (i == 0) return 0;
                 break;
         }
     }
 
-    return 1;
+    return result;
 }
 
 /**
@@ -306,68 +308,33 @@ void writeHoldingRegs(int iRegIndex, uint16_t tempReg)
     switch (iRegIndex)
     {
         case HREG_M1_RUN:
+            if (tempReg > 1) break;
             usRegHoldingBuf[HREG_M1_RUN] = tempReg;
             dcmotor_Stop(M1);
             if (usRegHoldingBuf[HREG_M1_RUN] == 1)
             {
                 dcmotor_Start(M1);
-                dcmotor_setDirection(M1, usRegHoldingBuf[HREG_M1_DIR], (uint32_t) pwm_data);
+                dcmotor_setDirection(M1, usRegHoldingBuf[HREG_M1_DIR], (uint32_t)pwm_data);
             }
-
             break;
         case HREG_M1_DIR:
             usRegHoldingBuf[HREG_M1_DIR] = tempReg;
-            dcmotor_setDirection(M1, tempReg, (uint32_t) pwm_data);
+            dcmotor_setDirection(M1, usRegHoldingBuf[HREG_M1_DIR], (uint32_t)pwm_data);
             break;
         case HREG_M1_SPEED:
             usRegHoldingBuf[HREG_M1_SPEED] = tempReg;
-            pwm_data[0] = tempReg;
+            pwm_data[0] = usRegHoldingBuf[HREG_M1_SPEED];
+            break;
+        case HREG_NEW_MODBUS_ADDRESS:
+            if (tempReg < 10 || tempReg > 99) break;
+            usRegHoldingBuf[HREG_NEW_MODBUS_ADDRESS] = tempReg;
+            char value[3];
+            writeDeviceAddress(itoa(usRegHoldingBuf[HREG_NEW_MODBUS_ADDRESS], value, 10));
             break;
         default:
-            __32bitsRegBuf.us[0] = tempReg;
+            // usRegHoldingBuf[iRegIndex] = tempReg;
             break;
     }
-}
-
-eMBErrorCode
-eMBRegInputCB(UCHAR *pucRegBuffer, USHORT usAddress, USHORT usNRegs)
-{
-    eMBErrorCode eStatus = MB_ENOERR;
-    int iRegIndex;
-
-    if ((usAddress >= REG_INPUT_START) && (usAddress + usNRegs <= REG_INPUT_START + REG_INPUT_NREGS))
-    {
-        iRegIndex = (int)(usAddress - usRegInputStart);
-        while (usNRegs > 0)
-        {
-            uint8_t numUs = fetchInputRegsData(iRegIndex);
-            if (numUs < 1)
-            {
-                return MB_ENORES;
-            }
-
-            for (size_t i = 0; i < numUs; ++i)
-            {
-                if (usNRegs > 0)
-                {
-                    *pucRegBuffer++ = (unsigned char)(usRegInputBuf[iRegIndex] >> 8);
-                    *pucRegBuffer++ = (unsigned char)(usRegInputBuf[iRegIndex] &0xFF);
-                    iRegIndex++;
-                    usNRegs--;
-                }
-                else
-                {
-                    return MB_ENORES;
-                }
-            }
-        }
-    }
-    else
-    {
-        eStatus = MB_ENOREG;
-    }
-
-    return eStatus;
 }
 
 eMBErrorCode eMBRegHoldingCB(UCHAR *pucRegBuffer, USHORT usAddress, USHORT usNRegs, eMBRegisterMode eMode)
@@ -413,15 +380,11 @@ eMBErrorCode eMBRegHoldingCB(UCHAR *pucRegBuffer, USHORT usAddress, USHORT usNRe
 
     if (eMode == MB_REG_WRITE)
     {
-        if ((usAddress >= REG_HOLDING_START) &&
-            (usAddress + usNRegs <= REG_HOLDING_START + REG_HOLDING_NREGS))
+        if ((usAddress >= REG_HOLDING_START) && (usAddress + usNRegs <= REG_HOLDING_START + REG_HOLDING_NREGS))
         {
             iRegIndex = (int)(usAddress - usRegHoldingStart);
             if (validateWriteHoldingRegs(iRegIndex, usNRegs) == 0)
-            {
-               	// printf("Bad Request!\r\n");
-                return MB_EINVAL;
-            }
+                return MB_EINVAL; // bad request
 
             while (usNRegs > 0)
             {
@@ -431,13 +394,15 @@ eMBErrorCode eMBRegHoldingCB(UCHAR *pucRegBuffer, USHORT usAddress, USHORT usNRe
                 iRegIndex++;
             }
         }
-        else
-        {
-            eStatus = MB_ENOREG;
-        }
+        else eStatus = MB_ENOREG;
     }
 
     return eStatus;
+}
+
+eMBErrorCode eMBRegInputCB(UCHAR *pucRegBuffer, USHORT usAddress, USHORT usNRegs)
+{
+    return MB_ENOREG;
 }
 
 eMBErrorCode eMBRegCoilsCB(UCHAR *pucRegBuffer, USHORT usAddress, USHORT usNCoils, eMBRegisterMode eMode)
@@ -449,7 +414,6 @@ eMBErrorCode eMBRegDiscreteCB(UCHAR *pucRegBuffer, USHORT usAddress, USHORT usND
 {
     return MB_ENOREG;
 }
-
 /*USER CODE END 4 */
 
 /**
@@ -461,6 +425,7 @@ void Error_Handler(void)
     /*USER CODE BEGIN Error_Handler_Debug */
     /*User can add his own implementation to report the HAL error return state */
     __disable_irq();
+    HAL_NVIC_SystemReset();
     while (1) {}
 
     /*USER CODE END Error_Handler_Debug */
